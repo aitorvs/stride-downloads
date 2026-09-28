@@ -15,18 +15,14 @@ ChatGPT's developer-mode warning applies: connect only tools you trust. Stride
 exposes only the five read tools listed below. Your requested run data and notes
 will be sent to ChatGPT, whose normal account policies and usage limits apply.
 
-1. Install OpenAI's official `tunnel-client` helper. On Mac:
-
-   ```sh
-   brew install openai/tools/tunnel-client
-   ```
-
-   If Homebrew asks for newer Apple Command Line Tools, update them through
-   System Settings → General → Software Update before retrying. On Windows,
-   use the Windows download from the [official helper releases](https://github.com/openai/tunnel-client/releases/latest),
-   extract it, and enter the full path to `tunnel-client.exe` under **Install the
-   connection helper** in Stride. Stride never downloads or executes a helper
-   automatically.
+1. In Stride, enable **Allow AI access to my running journal**. Stride finds an
+   existing helper or downloads the current stable official `tunnel-client`
+   release for your computer. It verifies the SHA-256 digest from GitHub's release
+   metadata before installing it in `<Stride data directory>/ai/helper/`.
+   No Homebrew, Terminal, or Apple Command Line Tools are needed. The dashboard
+   shows progress and a retry button if the download fails. An existing helper
+   can also be selected under **Advanced setup**. Installation alone does not
+   connect your journal to OpenAI; that happens after you select Connect below.
 2. In ChatGPT, enable Developer mode under **Settings → Security and login**.
    Availability depends on your account and workspace policy.
 3. In [OpenAI Platform tunnel settings](https://platform.openai.com/settings/organization/tunnels),
@@ -35,19 +31,22 @@ will be sent to ChatGPT, whose normal account policies and usage limits apply.
    Use to run it. Platform and ChatGPT permissions are separate.
 4. Create a **runtime API key** in your Platform organization with the required
    tunnel access. Do not use an admin API key or paste any key into a chat.
-5. In Stride, enable **Allow AI access to my running journal**. Enter the tunnel
-   ID and runtime key, then select **Connect**. Stride saves the key privately
+5. Once the helper is installed, enter the tunnel ID and runtime key in Stride,
+   then select **Connect**. Stride saves the key privately
    in its data folder and starts the official helper. It does not make model
    inference calls. Tunnel service availability/costs are controlled by OpenAI;
    this app does not promise that an external service will always be free.
-6. Once the helper reports readiness, open [ChatGPT Plugins](https://chatgpt.com/plugins),
-   add **Stride**, choose **Tunnel**, and select the same tunnel. Add the
+6. Once the helper reports readiness, choose **Create MCP app** in ChatGPT,
+   name it **Stride**, choose **Connection → Tunnel**, and select the same tunnel.
+   Set **Authentication → No authentication**: the helper supplies Stride’s local
+   access key; this server does not implement OAuth. Add the
    connection to a chat. Try: “List my three latest runs”, then “Analyse the
    latest one” or “Compare it with a similar earlier run.”
 
 Keep Stride running and your computer awake. Sync Garmin in Stride when you want
 new activities available. This connection does not sync your watch on demand.
-The helper reconnects on the next app launch after successful local setup.
+The saved connection starts automatically on the next app launch. A ready tunnel
+means the helper is connected, not that ChatGPT has finished its setup.
 
 **Turn access off** stops both the local service and the helper. Re-enabling
 local access does not automatically restart the ChatGPT helper; select Connect.
