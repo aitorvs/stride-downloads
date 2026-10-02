@@ -6,7 +6,7 @@ of the browser dashboard. The CLI dashboard does not enable this connection.
 
 Access starts off. Turning it on starts a separate authenticated service bound
 only to `127.0.0.1`. It does not publish the dashboard or contact an AI provider.
-An AI client can read your synced runs once you explicitly connect it.
+An AI client can read your synced activities and notes once you explicitly connect it.
 
 ## Claude Desktop setup
 
@@ -38,7 +38,7 @@ See the [official local MCP setup guide](https://modelcontextprotocol.io/docs/de
 
 This is a personal developer-mode integration, not a reviewed public plugin.
 ChatGPT's developer-mode warning applies: connect only tools you trust. Stride
-exposes only the six read tools listed below. Your requested run data and notes
+exposes only the eleven read tools listed below. Your requested run data and notes
 will be sent to ChatGPT, whose normal account policies and usage limits apply.
 
 1. In Stride, enable **Allow AI access to my running journal**. Expand **ChatGPT setup**
@@ -89,7 +89,7 @@ Use a client that supports Streamable HTTP MCP with custom request headers:
 - Header: `X-Stride-AI-Key`, with the private connection key shown there.
 
 Both the port and key persist across app restarts. This key grants read access to
-all running activities and notes in the local journal while access is enabled.
+all imported activities and notes in the local journal while access is enabled.
 Keep it private. The service rejects browser-origin requests, unexpected Host
 headers, missing/wrong keys, and all paths other than `/mcp`. Never forward the
 existing dashboard port to the internet. No public HTTPS/OAuth deployment is
@@ -99,12 +99,17 @@ included in this release.
 
 | Tool | Reads |
 | --- | --- |
+| `recovery_trends` | Personal HRV, resting-HR and sleep trends versus a preceding baseline, usable-day coverage, measurement times and exclusions |
+| `coach_context` | Compact coaching briefing: latest form with freshness flags, check-ins, recent training, activity IDs, coverage and next steps |
+| `current_form` | Garmin daily readings, check-ins and recent training; measurement dates and stale/missing status |
 | `library_status` | Local running count and date bounds, unreadable file count, last recorded sync attempt and last successful sync scope; completeness remains unknown |
 | `list_runs` | Newest-first summaries; date, workout/note text, workout type, distance and moving-duration filters; pagination (up to 100 per page) |
+| `list_activities` | All activities, non-running context (`sport=other`), or a specific FIT sport; date/search filters, notes and pagination |
+| `get_activity` | Session metrics, recorded laps, planned workouts, executed steps and notes for supporting activities, without running-specific interpretation |
 | `get_run` | A selected run's metrics, laps, workout and notes; optional series capped at 1,200 samples |
 | `find_similar_runs` | Up to five earlier runs using the dashboard's existing matching rules |
 | `compare_runs` | Two explicitly selected runs, including laps and notes |
-| `training_summary` | Custom inclusive dates or 1–3,650 days ending at a chosen date; aggregates versus the preceding equal period (default 90 days ending today) |
+| `training_summary` | Custom inclusive dates or 1–3,650 days ending at a chosen date; running aggregates plus other training grouped separately by sport, versus the preceding equal period (default 90 days ending today) |
 
 `list_runs` and `training_summary` include coverage metadata for the requested
 period; summaries also include it for the comparison period. The period's local
@@ -156,8 +161,52 @@ smoke tests check opt-in, initialization, tool discovery, a read request, disabl
 and shutdown. Live Claude Desktop and ChatGPT discovery and an actual run analysis still require
 your own tunnel/account setup and are not implied by the local tests passing.
 
-Download the latest preview from [Stride releases](https://github.com/aitorvs/stride-downloads/releases).
+For fast local testing without a release, see [the development loop](../packaging/README.md#fast-local-development-on-mac).
 
 Official references:
 [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels),
 [ChatGPT connection setup](https://developers.openai.com/plugins/deploy/connect-chatgpt).
+
+## Other training as running context
+
+Garmin sync defaults to **Running only**. Choose **All activities** to import
+cross-training as well; the limit counts matching activities, not runs. Increase
+it to include a longer history when cycling, walks or strength sessions are frequent.
+The dashboard defaults to runs, with an **Other training** filter and a seven-day
+context summary. Supporting activities have basic metrics and autosaved notes;
+record effort and strength focus in notes when useful. Running trends, totals and
+comparisons remain running-only.
+
+Run reports and JSON include up to 20 other activities from the preceding seven
+calendar days, including the run date, with notes and unknown coverage. Check
+`total`/`next_offset` or use `list_activities` for additional context. Sessions later
+on the same calendar date may be included; timestamps identify their order.
+Training summaries include separate `other_training` and `prior_other_training`
+by sport. Missing duration/intensity stays unknown; cross-sport distance is never
+added to running distance. This does not infer recovery or training load.
+
+AI clients can discover supporting sessions with `list_activities`, then read laps
+and workout steps with `get_activity` when intensity or recovery context matters.
+MCP cannot download from Garmin or start sync; import missing history in Stride.
+
+### Current form
+
+`current_form(days=7)` reads locally imported Garmin readiness, recovery time, training status and load, sleep, HRV and resting heart rate, plus personal check-ins and seven days of training context. Refresh these in Stride’s Current form view after syncing your watch. Availability depends on the device and Garmin account. Readings retain their measurement date and retrieval time; failed refreshes preserve previous values as stale. This tool never contacts Garmin. Enabled AI access includes these readings and check-ins.
+
+Copied activity reports and downloaded JSON also include seven days of locally imported Current form readings and check-ins, plus current seven-day training totals. This evidence is labelled as current at export time, separately from the activity date; it must not be treated as pre-activity evidence for an older session. Comparisons share one form context. Refresh Current form before exporting to update the readings. No export contacts Garmin.
+
+### Starting a coaching conversation
+
+Start with `coach_context(days=7, activity_limit=20)`. It combines the latest imported readings (looking back up to 30 days), recent check-ins, separate running and other-training totals, and a bounded page of activity summaries with IDs. The requested period ends today; days is 1–30 and activity_limit is 1–50. Follow the returned `get_run` or `get_activity` references only when details matter. Page through `list_activities` if more summaries are needed. Notes are limited to 1,000 characters with truncation flags; `current_form` provides full check-in notes and daily history. Activity detail tools avoid repeating the full form briefing.
+
+A reading is labelled current only if its measurement date is today and its import is no older than 24 hours. Old values, failed refreshes and unknown timestamps remain explicit. This label describes data freshness, not recovery. The briefing suggests refreshing Current form, asking how the athlete feels, or importing missing history as appropriate. All actions are suggestions; MCP remains read-only and never contacts Garmin.
+
+### Personal recovery trends
+
+`recovery_trends(recent_days=7, baseline_days=28)` compares the recent period ending today with the immediately preceding baseline. Recent days is 1–14; baseline days is 14–60. It returns daily last-night HRV, resting HR, sleep duration and sleep score, together with daily timing and data-quality flags, means, medians and ranges. Differences are available only with at least 70% usable days in each period and at least 14 usable baseline days. This is a transparent data-coverage rule, not a clinical threshold. Missing values are never treated as zero; failed refreshes and measurement-date mismatches are excluded. Sparse means remain visible and marked insufficient.
+
+To populate the default comparison, select **Last 35 days · build a baseline** in Current form and refresh Garmin readings. This longer import is optional and can take more time. The dashboard history displays up to 30 days; recovery trends reads the complete requested window. Longer baselines become available as imported history accumulates. Device availability may still leave readings missing. The observed baseline is distinct from Garmin’s balanced HRV range, and the tool calculates no readiness score or workout prescription.
+
+Coaching instructions now explicitly distinguish faster mixed-run averages from evidence of improved fitness, locally recorded volume from actual volume when coverage is unknown, and possible cadence lock from confirmation. Recovery readings must be matched to workout measurement times; an import timestamp does not prove a reading includes a later activity.
+
+The same interpretation guidance is included in MCP connection instructions, `coach_context`, `current_form`, `recovery_trends`, and copied reports/JSON exports. Unknown measurement time means unknown same-day workout order; calendar dates and import times do not establish that relationship. Descriptive baselines must not become invented cutoffs or consecutive-day workout rules. Favourable recorded markers do not establish recovery or prove that training load was absorbed; the coach should consider athlete feedback and ask for it when missing. This guidance steers the AI client but cannot guarantee compliance.
