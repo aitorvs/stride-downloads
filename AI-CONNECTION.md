@@ -38,7 +38,7 @@ See the [official local MCP setup guide](https://modelcontextprotocol.io/docs/de
 
 This is a personal developer-mode integration, not a reviewed public plugin.
 ChatGPT's developer-mode warning applies: connect only tools you trust. Stride
-exposes only the eleven read tools listed below. Your requested run data and notes
+exposes only the twelve read tools listed below. Your requested run data and notes
 will be sent to ChatGPT, whose normal account policies and usage limits apply.
 
 1. In Stride, enable **Allow AI access to my running journal**. Expand **ChatGPT setup**
@@ -99,6 +99,7 @@ included in this release.
 
 | Tool | Reads |
 | --- | --- |
+| `server_info` | Running app/interface versions, schema fingerprint, instance ID, tool names and capabilities; no private journal data |
 | `recovery_trends` | Personal HRV, resting-HR and sleep trends versus a preceding baseline, usable-day coverage, measurement times and exclusions |
 | `coach_context` | Compact coaching briefing: latest form with freshness flags, check-ins, recent training, activity IDs, coverage and next steps |
 | `current_form` | Garmin daily readings, check-ins and recent training; measurement dates and stale/missing status |
@@ -210,3 +211,11 @@ To populate the default comparison, select **Last 35 days · build a baseline** 
 Coaching instructions now explicitly distinguish faster mixed-run averages from evidence of improved fitness, locally recorded volume from actual volume when coverage is unknown, and possible cadence lock from confirmation. Recovery readings must be matched to workout measurement times; an import timestamp does not prove a reading includes a later activity.
 
 The same interpretation guidance is included in MCP connection instructions, `coach_context`, `current_form`, `recovery_trends`, and copied reports/JSON exports. Unknown measurement time means unknown same-day workout order; calendar dates and import times do not establish that relationship. Descriptive baselines must not become invented cutoffs or consecutive-day workout rules. Favourable recorded markers do not establish recovery or prove that training load was absorbed; the coach should consider athlete feedback and ask for it when missing. This guidance steers the AI client but cannot guarantee compliance.
+
+### Diagnosing tool/version mismatches
+
+Open **AI connection → Connection diagnostics** in Stride and ask the AI to call `server_info`. Compare the running app version, MCP interface version, schema fingerprint and tool list. The interface starts at `1.0.0` and uses semantic versioning: major for breaking tool contracts, minor for additive capabilities and patch for compatible corrections. The app version and negotiated MCP protocol version are separate.
+
+The schema fingerprint hashes actual registered tool definitions and shared coaching guidance. Journal notes, credentials and app version do not affect it. The running-instance ID changes when Stride restarts; it stays the same when toggling AI access. Copy diagnostics includes neither keys, tunnel IDs, paths nor activity data.
+
+If ChatGPT cannot see `server_info`, its saved catalog predates diagnostics or reaches another server. Confirm the running app version and matching tunnel ID, refresh the Stride connection in ChatGPT, then start a new chat. Recreating a connection forces fresh setup/discovery but is not normally necessary. A successful reinstall alone cannot identify whether the earlier issue was cached metadata, endpoint selection or a client-side refresh failure. Schema versioning does not force clients to update their catalogs.
